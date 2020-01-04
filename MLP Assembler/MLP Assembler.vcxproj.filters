@@ -19,4 +19,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="test_data\basic.as">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>
