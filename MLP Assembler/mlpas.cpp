@@ -7,6 +7,8 @@
 #include <regex>
 #include <string>
 
+#include "mlpas.h"
+
 enum OpCode
 {
     MOVIR = 0,
@@ -55,9 +57,34 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
         std::cerr << "Couldn't parse '" << line << "'" << " (" << filename << ":" << lineNum << ")" << std::endl;
     }
 
-    if (opcode == "jz") {
+    if (opcode == "add") {
+        if (arg0.empty() || arg1.empty() || arg2.empty()) {
+            std::cerr << "ERROR: Wrong number of arguments for 'add'" <<
+                " (" << filename << ":" << lineNum << ")" << std::endl;
+        } else {
+            if (arg0[0] != 'r') {
+                std::cerr << "ERROR: First argument for 'add' must be the destination register, not '" << arg0 << "'" <<
+                    " (" << filename << ":" << lineNum << ")" << std::endl;
+            } else {
+                unsigned int reg0 = (unsigned)std::stoi(arg0.substr(1));
+                if (arg1[0] == '#') {
+                    // Add immediate to a register
+                    parsed_inst = Instruction({.label = label, .opcode = ADDI, .packed_args = (unsigned)std::stoi(arg1.substr(1))});
+                } else if (arg1[0] == 'r' && arg2[0] == 'r') {
+                    unsigned int reg1 = (unsigned)std::stoi(arg1.substr(1));
+                    unsigned int reg2 = (unsigned)std::stoi(arg2.substr(1));
+                    parsed_inst = Instruction({.label = label, .opcode = ADDRR, 
+                        .packed_args = ((reg0 &0xF) << 8) |((reg1 & 0xF) << 4) | ((reg2 & 0xF))});
+                } else {
+                    std::cerr << "ERROR: Second and third arguments for 'add' must be the two source registers, not '" << 
+                        arg1 << "' and '" << arg2 << "'" <<
+                        " (" << filename << ":" << lineNum << ")" << std::endl;
+                }
+            }
+        }
+    } else if (opcode == "jz") {
         if (arg0.empty() || !arg1.empty() || !arg2.empty()) {
-            std::cerr << "ERROR: Wrong number of arguments for 'jz'" << 
+            std::cerr << "ERROR: Wrong number of arguments for 'jz'" <<
                 " (" << filename << ":" << lineNum << ")" << std::endl;
         } else {
             if (arg0[0] == '#') {
@@ -77,12 +104,14 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
             std::cerr << "ERROR: Wrong number of arguments for 'mov'"<<
                 " (" << filename << ":" << lineNum << ")" << std::endl;
         } else {
+            unsigned int reg0 = (unsigned)std::stoi(arg0.substr(1));
             if (arg0[0] != 'r') {
                 std::cerr << "ERROR: First argument for 'mov' must be a register" <<
                     " (" << filename << ":" << lineNum << ")" << std::endl;
             }
             if (arg1[0] == '#') {
-                parsed_inst = Instruction({.label = label, .opcode = MOVIR, .packed_args = 0});
+                parsed_inst = Instruction({.label = label, .opcode = MOVIR, 
+                    .packed_args = ((reg0 &0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
             } else if (arg1[0] == 'r') {
                 parsed_inst = Instruction({.label = label, .opcode = MOVRR, .packed_args = 0});
             } else {
@@ -94,14 +123,15 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
         parsed_inst = Instruction({.label = label, .opcode = NOP});
     } else if (opcode == "store") {
         if (arg0[0] == '@') {
-            parsed_inst = Instruction({.label = label, .opcode = STORE, 
-                .packed_args = (unsigned)std::stoi(arg0.substr(1))});
+            unsigned int reg = (unsigned)std::stoi(arg1.substr(1));
+            parsed_inst = Instruction({.label = label, .opcode = STORE,
+                .packed_args = ((reg & 0xF) << 8) | ((unsigned)std::stoi(arg0.substr(1)) & 0xFF)});
         } else {
-            parsed_inst = Instruction({.label = label, .opcode = STORE, 
-                .packed_args = 0, .address = 0, .target_label = arg0});
+            parsed_inst = Instruction({.label = label, .opcode = STORE,
+                .packed_args = (((unsigned)std::stoi(arg1.substr(1)) & 0xF) << 8), .address = 0, .target_label = arg0});
         }
     } else {
-        std::cerr << "opcode '" << opcode << "' not supported" << 
+        std::cerr << "opcode '" << opcode << "' not supported" <<
             " (" << filename << ":" << lineNum << ")" << std::endl;
     }
     return parsed_inst;
@@ -114,10 +144,9 @@ std::vector<Instruction> parseInput(std::string infile_path)
 
     if (!in_file) {
         std::cerr << "Error opening file '" << infile_path << "'";
-        return parsed_instructions;
+        return std::vector<Instruction>();
     }
-
-
+    
     int lineNum = 1;
     std::string curLine;
     int byte_counter = 0;
@@ -126,7 +155,7 @@ std::vector<Instruction> parseInput(std::string infile_path)
         inst.address = byte_counter;
         if (!inst.label.empty()) {
             if (jump_table.count(inst.label) != 0) {
-                std::cerr << "ERROR: Duplicated label '"<< inst.label << "'" << 
+                std::cerr << "ERROR: Duplicated label '"<< inst.label << "'" <<
                     " (" << infile_path << ":" << lineNum << ")" << std::endl;
             } else {
                 jump_table[inst.label] = inst.address;
@@ -142,23 +171,49 @@ std::vector<Instruction> parseInput(std::string infile_path)
         if (!inst.target_label.empty()) {
             auto label_iter = jump_table.find(inst.target_label);
             if (label_iter == jump_table.end()) {
-                std::cerr << "ERROR: unknown jump target label '"<< inst.target_label << "'" << 
+                std::cerr << "ERROR: unknown jump target label '"<< inst.target_label << "'" <<
                     " (" << infile_path << ":" << lineNum << ")" << std::endl;
             } else {
-                inst.packed_args = label_iter->second;
+                inst.packed_args |= (label_iter->second & 0xFF);
             }
         }
     }
     return parsed_instructions;
 }
 
+int write_program_binary(std::string out_file_path, std::vector<Instruction> const &parsed_instructions)
+{
+    std::ofstream out_file(out_file_path, std::ios::binary | std::ios::out);
+    if (!out_file) {
+        std::cerr << "Error opening file '" << out_file_path << "'";
+        return 1;
+    }
+    std::vector<uint16_t> machine_code(parsed_instructions.size());
+    unsigned char *machine_code_bytes = reinterpret_cast<unsigned char *>(&machine_code[0]);
+    size_t inst_count = 0;
+    for (auto inst : parsed_instructions) {
+        machine_code[inst_count] = (((inst.opcode & 0xF) << 12) | (inst.packed_args & 0xFFF));
+        // Change endinanness
+        std::swap(machine_code_bytes[2*inst_count + 0], machine_code_bytes[2*inst_count + 1]);
+        inst_count++;
+    }
+    out_file.write(reinterpret_cast<char *>(&machine_code[0]), inst_count*2);
+    out_file.close();
+}
+
 int main(int argc, char **argv)
 {
+    if (argc != 3) {
+        std::cerr << "Usage: mlpas <input_assembly_file> <output_binary_file>" << std::endl;
+        return 1;
+    }
     auto parsed_instructions = parseInput(argv[1]);
+    write_program_binary(argv[2], parsed_instructions);
+
     for (auto inst : parsed_instructions) {
         std::cout << "[" << std::setw(2) << std::setfill('0') << std::hex << inst.address << "] " <<
             std::setw(4) << std::setfill('0') << std::bitset<4>(inst.opcode) << " " <<
             std::setw(4) << std::setfill('0') << std::bitset<4>(inst.packed_args >> 8) << " " <<
-            std::setw(8) << std::setfill('0') << std::bitset<4>(inst.packed_args & 0xFF) << std::endl;
+            std::setw(8) << std::setfill('0') << std::bitset<8>(inst.packed_args & 0xFF) << std::endl;
     }
 }

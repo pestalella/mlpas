@@ -9,11 +9,11 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>test_data\basic.as</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>test_data\basic.as basic.bin</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>C:\Users\Pau\source\repos\MyLittleProcessor\src\verification\tests\basic_looping.as</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>test_data\basic.as basic.bin</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
