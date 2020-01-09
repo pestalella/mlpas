@@ -7,12 +7,9 @@
 #include <regex>
 #include <string>
 
-#include "mlpas.h"
-
 enum OpCode
 {
     MOVIR = 0,
-    MOVRR = 1,
     LOAD = 2,
     STORE = 3,
     ADDRR = 4,
@@ -33,6 +30,22 @@ struct Instruction
     unsigned int address;
     std::string target_label;
 };
+
+const char *ws = " \t\n\r\f\v";
+
+// trim from end of string (right)
+inline std::string &rtrim(std::string &s, const char *t = ws)
+{
+    s.erase(s.find_last_not_of(t) + 1);
+    return s;
+}
+
+// trim from beginning of string (left)
+inline std::string &ltrim(std::string &s, const char *t = ws)
+{
+    s.erase(0, s.find_first_not_of(t));
+    return s;
+}
 
 std::map<std::string, int> jump_table;
 
@@ -108,12 +121,9 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
             if (arg0[0] != 'r') {
                 std::cerr << "ERROR: First argument for 'mov' must be a register" <<
                     " (" << filename << ":" << lineNum << ")" << std::endl;
-            }
-            if (arg1[0] == '#') {
+            } else if (arg1[0] == '#') {
                 parsed_inst = Instruction({.label = label, .opcode = MOVIR, 
                     .packed_args = ((reg0 &0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
-            } else if (arg1[0] == 'r') {
-                parsed_inst = Instruction({.label = label, .opcode = MOVRR, .packed_args = 0});
             } else {
                 std::cerr << "ERROR: Wrong argument type of second argument for 'mov'" <<
                     " (" << filename << ":" << lineNum << ")" << std::endl;
@@ -129,6 +139,31 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
         } else {
             parsed_inst = Instruction({.label = label, .opcode = STORE,
                 .packed_args = (((unsigned)std::stoi(arg1.substr(1)) & 0xF) << 8), .address = 0, .target_label = arg0});
+        } 
+    }  else if (opcode == "sub") {
+        if (arg0.empty() || arg1.empty() || arg2.empty()) {
+            std::cerr << "ERROR: Wrong number of arguments for 'sub'" <<
+                " (" << filename << ":" << lineNum << ")" << std::endl;
+        } else {
+            if (arg0[0] != 'r') {
+                std::cerr << "ERROR: First argument for 'sub' must be the destination register, not '" << arg0 << "'" <<
+                    " (" << filename << ":" << lineNum << ")" << std::endl;
+            } else {
+                unsigned int reg0 = (unsigned)std::stoi(arg0.substr(1));
+                if (arg1[0] == '#') {
+                    // Subtract immediate from a register
+                    parsed_inst = Instruction({.label = label, .opcode = SUBI, .packed_args = (unsigned)std::stoi(arg1.substr(1))});
+                } else if (arg1[0] == 'r' && arg2[0] == 'r') {
+                    unsigned int reg1 = (unsigned)std::stoi(arg1.substr(1));
+                    unsigned int reg2 = (unsigned)std::stoi(arg2.substr(1));
+                    parsed_inst = Instruction({.label = label, .opcode = SUBRR,
+                        .packed_args = ((reg0 &0xF) << 8) |((reg1 & 0xF) << 4) | ((reg2 & 0xF))});
+                } else {
+                    std::cerr << "ERROR: Second and third arguments for 'sub' must be the two source registers, not '" <<
+                        arg1 << "' and '" << arg2 << "'" <<
+                        " (" << filename << ":" << lineNum << ")" << std::endl;
+                }
+            }
         }
     } else {
         std::cerr << "opcode '" << opcode << "' not supported" <<
@@ -151,6 +186,9 @@ std::vector<Instruction> parseInput(std::string infile_path)
     std::string curLine;
     int byte_counter = 0;
     while (std::getline(in_file, curLine)) {
+        curLine = ltrim(rtrim(curLine));
+        if (curLine.empty()) continue;
+
         Instruction inst = parseLine(curLine, lineNum, infile_path);
         inst.address = byte_counter;
         if (!inst.label.empty()) {
@@ -161,7 +199,10 @@ std::vector<Instruction> parseInput(std::string infile_path)
                 jump_table[inst.label] = inst.address;
             }
         }
-        std::cout << "%% " << curLine << ": [@" << inst.address << "] " << inst.opcode << std::endl;
+        curLine = ltrim(rtrim(curLine));
+        std::cout << "%% " << std::setw(15) << std::setfill(' ') << curLine << std::setw(0) << ": [@" <<
+            std::setw(2) << std::setfill('0') << inst.address << "] " << 
+            std::setw(4) << std::setfill('0') << std::bitset<4>(inst.opcode) << std::endl;
         parsed_instructions.push_back(inst);
         lineNum += 1;
         byte_counter += 2;
