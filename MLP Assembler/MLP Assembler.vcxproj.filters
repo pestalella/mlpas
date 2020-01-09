@@ -23,6 +23,15 @@
     <None Include="test_data\basic.as">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="test_data\jz.as">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="test_data\mov.as">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="test_data\subtract.as">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mlpas.h">

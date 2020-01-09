@@ -16,7 +16,7 @@ enum OpCode
     ADDI = 5,
     SUBRR = 6,
     SUBI = 7,
-    JZI = 8,
+    JNZI = 8,
     JZR = 9,
     NOP = 15,
     UNKNOWN = 9999
@@ -71,7 +71,7 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
     }
 
     if (opcode == "add") {
-        if (arg0.empty() || arg1.empty() || arg2.empty()) {
+        if (arg0.empty() || arg1.empty()) {
             std::cerr << "ERROR: Wrong number of arguments for 'add'" <<
                 " (" << filename << ":" << lineNum << ")" << std::endl;
         } else {
@@ -95,20 +95,20 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                 }
             }
         }
-    } else if (opcode == "jz") {
+    } else if (opcode == "jnz") {
         if (arg0.empty() || !arg1.empty() || !arg2.empty()) {
             std::cerr << "ERROR: Wrong number of arguments for 'jz'" <<
                 " (" << filename << ":" << lineNum << ")" << std::endl;
         } else {
             if (arg0[0] == '#') {
                 // Relative jump
-                parsed_inst = Instruction({.label = label, .opcode = JZI, .packed_args = 0});
+                parsed_inst = Instruction({.label = label, .opcode = JNZI, .packed_args = 0});
             } else if (arg0[0] == '@') {
                 // Jump to address in register
                 parsed_inst = Instruction({.label = label, .opcode = JZR, .packed_args = 0});
             } else {
                 // Jump to label
-                parsed_inst = Instruction({.label = label, .opcode = JZI,
+                parsed_inst = Instruction({.label = label, .opcode = JNZI,
                     .packed_args = 0, .address = 0, .target_label = arg0});
             }
         }
