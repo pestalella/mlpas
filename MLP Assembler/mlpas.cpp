@@ -82,7 +82,9 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                 unsigned int reg0 = (unsigned)std::stoi(arg0.substr(1));
                 if (arg1[0] == '#') {
                     // Add immediate to a register
-                    parsed_inst = Instruction({.label = label, .opcode = ADDI, .packed_args = (unsigned)std::stoi(arg1.substr(1))});
+                    unsigned int reg0 = (unsigned)std::stoi(arg0.substr(1));
+                    parsed_inst = Instruction({.label = label, .opcode = ADDI, 
+                        .packed_args = ((reg0 &0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
                 } else if (arg1[0] == 'r' && arg2[0] == 'r') {
                     unsigned int reg1 = (unsigned)std::stoi(arg1.substr(1));
                     unsigned int reg2 = (unsigned)std::stoi(arg2.substr(1));
@@ -200,9 +202,8 @@ std::vector<Instruction> parseInput(std::string infile_path)
             }
         }
         curLine = ltrim(rtrim(curLine));
-        std::cout << "%% " << std::setw(15) << std::setfill(' ') << curLine << std::setw(0) << ": [@" <<
-            std::setw(2) << std::setfill('0') << inst.address << "] " << 
-            std::setw(4) << std::setfill('0') << std::bitset<4>(inst.opcode) << std::endl;
+        std::cout << "[@" << std::setw(2) << std::setfill('0') << std::hex << inst.address << "] " << 
+                     std::setw(25) << std::setfill(' ') << curLine << std::endl;
         parsed_instructions.push_back(inst);
         lineNum += 1;
         byte_counter += 2;
@@ -222,12 +223,12 @@ std::vector<Instruction> parseInput(std::string infile_path)
     return parsed_instructions;
 }
 
-int write_program_binary(std::string out_file_path, std::vector<Instruction> const &parsed_instructions)
+void write_program_binary(std::string out_file_path, std::vector<Instruction> const &parsed_instructions)
 {
     std::ofstream out_file(out_file_path, std::ios::binary | std::ios::out);
     if (!out_file) {
         std::cerr << "Error opening file '" << out_file_path << "'";
-        return 1;
+        return;
     }
     std::vector<uint16_t> machine_code(parsed_instructions.size());
     unsigned char *machine_code_bytes = reinterpret_cast<unsigned char *>(&machine_code[0]);
@@ -242,6 +243,33 @@ int write_program_binary(std::string out_file_path, std::vector<Instruction> con
     out_file.close();
 }
 
+void write_program_hex(std::string out_file_path, std::vector<Instruction> const &parsed_instructions)
+{
+    std::ofstream out_file(out_file_path, std::ios::out);
+    if (!out_file) {
+        std::cerr << "Error opening file '" << out_file_path << "'";
+        return;
+    }
+    std::vector<uint16_t> machine_code(parsed_instructions.size());
+    unsigned char *machine_code_bytes = reinterpret_cast<unsigned char *>(&machine_code[0]);
+    size_t inst_count = 0;
+    for (auto inst : parsed_instructions) {
+        machine_code[inst_count] = (((inst.opcode & 0xF) << 12) | (inst.packed_args & 0xFFF));
+        // Change endinanness
+        std::swap(machine_code_bytes[2*inst_count + 0], machine_code_bytes[2*inst_count + 1]);
+        inst_count++;
+    }
+
+    for (auto curInst : machine_code) {
+        out_file << std::setfill('0') << std::setw(2) << std::hex << (curInst & 0x00FF);
+        out_file << " ";
+        out_file << std::setfill('0') << std::setw(2) << std::hex << ((curInst >> 8) & 0x00FF);
+        out_file << " ";
+        //        out_file << std::setfill(' ') << std::setw(3) << std::hex << 50 << ' ' << 12;
+    }
+    out_file.close();
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 3) {
@@ -249,7 +277,8 @@ int main(int argc, char **argv)
         return 1;
     }
     auto parsed_instructions = parseInput(argv[1]);
-    write_program_binary(argv[2], parsed_instructions);
+//    write_program_binary(argv[2], parsed_instructions);
+    write_program_hex(argv[2], parsed_instructions);
 
     for (auto inst : parsed_instructions) {
         std::cout << "[" << std::setw(2) << std::setfill('0') << std::hex << inst.address << "] " <<
