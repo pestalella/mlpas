@@ -160,6 +160,7 @@
     <None Include="test_data\basic.as" />
     <None Include="test_data\jz.as" />
     <None Include="test_data\mov.as" />
+    <None Include="test_data\pwm_test.as" />
     <None Include="test_data\subtract.as" />
   </ItemGroup>
   <ItemGroup>

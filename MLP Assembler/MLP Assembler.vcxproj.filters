@@ -32,6 +32,9 @@
     <None Include="test_data\subtract.as">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="test_data\pwm_test.as">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mlpas.h">
