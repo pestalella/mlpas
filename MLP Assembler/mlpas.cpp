@@ -1,4 +1,3 @@
-
 #include <bitset>
 #include <fstream>
 #include <iomanip>
@@ -34,17 +33,27 @@ struct Instruction
 const char *ws = " \t\n\r\f\v";
 
 // trim from end of string (right)
-inline std::string &rtrim(std::string &s, const char *t = ws)
+std::string &rtrim(std::string &s, const char *t = ws)
 {
     s.erase(s.find_last_not_of(t) + 1);
     return s;
 }
 
 // trim from beginning of string (left)
-inline std::string &ltrim(std::string &s, const char *t = ws)
+std::string &ltrim(std::string &s, const char *t = ws)
 {
     s.erase(0, s.find_first_not_of(t));
     return s;
+}
+
+std::string &removeComment(std::string &line)
+{
+    size_t comment_start_pos = line.find_first_of(";");
+    if (comment_start_pos == std::string::npos)
+        return line;
+    
+    line.erase(comment_start_pos);
+    return line;
 }
 
 std::map<std::string, int> jump_table;
@@ -188,7 +197,7 @@ std::vector<Instruction> parseInput(std::string infile_path)
     std::string curLine;
     int byte_counter = 0;
     while (std::getline(in_file, curLine)) {
-        curLine = ltrim(rtrim(curLine));
+        curLine = ltrim(rtrim(removeComment(curLine)));
         if (curLine.empty()) continue;
 
         Instruction inst = parseLine(curLine, lineNum, infile_path);
