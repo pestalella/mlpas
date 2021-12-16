@@ -51,7 +51,7 @@ std::string &removeComment(std::string &line)
     size_t comment_start_pos = line.find_first_of(";");
     if (comment_start_pos == std::string::npos)
         return line;
-    
+
     line.erase(comment_start_pos);
     return line;
 }
@@ -63,7 +63,7 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
     Instruction parsed_inst = Instruction({"", UNKNOWN, 0});
     std::string match_expr = "^\\s*(([a-zA-Z][a-zA-Z0-9]*):)?\\s*([a-z]+)"   // (optional label:) opcode
         "(\\s+(r[0-9]+|@[0-9]+|#[0-9]+|[a-zA-Z0-9]+))?"   //               optional arg0
-        "(\\s*[,]\\s*(r[0-9]+|@[0-9]+|#[0-9]+))?"         //               optional arg1   
+        "(\\s*[,]\\s*(r[0-9]+|@[0-9]+|#[0-9]+))?"         //               optional arg1
         "(\\s*[,]\\s*(r[0-9]+))?";                        //               optional arg2
     std::regex re(match_expr);
     std::smatch match;
@@ -92,20 +92,21 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                 if (arg1[0] == '#') {
                     // Add immediate to a register
                     unsigned int reg0 = (unsigned)std::stoi(arg0.substr(1));
-                    parsed_inst = Instruction({.label = label, .opcode = ADDI, 
+                    parsed_inst = Instruction({.label = label, .opcode = ADDI,
                         .packed_args = ((reg0 &0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
                 } else if (arg1[0] == 'r' && arg2[0] == 'r') {
                     unsigned int reg1 = (unsigned)std::stoi(arg1.substr(1));
                     unsigned int reg2 = (unsigned)std::stoi(arg2.substr(1));
-                    parsed_inst = Instruction({.label = label, .opcode = ADDRR, 
+                    parsed_inst = Instruction({.label = label, .opcode = ADDRR,
                         .packed_args = ((reg0 &0xF) << 8) |((reg1 & 0xF) << 4) | ((reg2 & 0xF))});
                 } else {
-                    std::cerr << "ERROR: Second and third arguments for 'add' must be the two source registers, not '" << 
+                    std::cerr << "ERROR: Second and third arguments for 'add' must be the two source registers, not '" <<
                         arg1 << "' and '" << arg2 << "'" <<
                         " (" << filename << ":" << lineNum << ")" << std::endl;
                 }
             }
         }
+
     } else if (opcode == "jnz") {
         if (arg0.empty() || !arg1.empty() || !arg2.empty()) {
             std::cerr << "ERROR: Wrong number of arguments for 'jz'" <<
@@ -123,6 +124,7 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                     .packed_args = 0, .address = 0, .target_label = arg0});
             }
         }
+
     } else if (opcode == "mov") {
         if (arg0.empty() || arg1.empty() || !arg2.empty()) {
             std::cerr << "ERROR: Wrong number of arguments for 'mov'"<<
@@ -133,15 +135,27 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                 std::cerr << "ERROR: First argument for 'mov' must be a register" <<
                     " (" << filename << ":" << lineNum << ")" << std::endl;
             } else if (arg1[0] == '#') {
-                parsed_inst = Instruction({.label = label, .opcode = MOVIR, 
+                parsed_inst = Instruction({.label = label, .opcode = MOVIR,
                     .packed_args = ((reg0 &0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
             } else {
                 std::cerr << "ERROR: Wrong argument type of second argument for 'mov'" <<
                     " (" << filename << ":" << lineNum << ")" << std::endl;
             }
         }
+
     } else if (opcode == "nop") {
         parsed_inst = Instruction({.label = label, .opcode = NOP});
+
+    } else if (opcode == "load") {
+        if (arg1[0] == '@') {
+            unsigned int reg = (unsigned)std::stoi(arg0.substr(1));
+            parsed_inst = Instruction({.label = label, .opcode = LOAD,
+                .packed_args = ((reg & 0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
+        } else {
+            parsed_inst = Instruction({.label = label, .opcode = LOAD,
+                .packed_args = (((unsigned)std::stoi(arg0.substr(1)) & 0xF) << 8), .address = 0, .target_label = arg1});
+        }
+
     } else if (opcode == "store") {
         if (arg0[0] == '@') {
             unsigned int reg = (unsigned)std::stoi(arg1.substr(1));
@@ -150,7 +164,8 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
         } else {
             parsed_inst = Instruction({.label = label, .opcode = STORE,
                 .packed_args = (((unsigned)std::stoi(arg1.substr(1)) & 0xF) << 8), .address = 0, .target_label = arg0});
-        } 
+        }
+
     }  else if (opcode == "sub") {
         if (arg0.empty() || arg1.empty() || arg2.empty()) {
             std::cerr << "ERROR: Wrong number of arguments for 'sub'" <<
@@ -176,6 +191,7 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                 }
             }
         }
+
     } else {
         std::cerr << "opcode '" << opcode << "' not supported" <<
             " (" << filename << ":" << lineNum << ")" << std::endl;
@@ -192,7 +208,7 @@ std::vector<Instruction> parseInput(std::string infile_path)
         std::cerr << "Error opening file '" << infile_path << "'";
         return std::vector<Instruction>();
     }
-    
+
     int lineNum = 1;
     std::string curLine;
     int byte_counter = 0;
@@ -211,7 +227,7 @@ std::vector<Instruction> parseInput(std::string infile_path)
             }
         }
         curLine = ltrim(rtrim(curLine));
-        std::cout << "[@" << std::setw(2) << std::setfill('0') << std::hex << inst.address << "] " << 
+        std::cout << "[@" << std::setw(2) << std::setfill('0') << std::hex << inst.address << "] " <<
                      std::setw(25) << std::setfill(' ') << curLine << std::endl;
         parsed_instructions.push_back(inst);
         lineNum += 1;
