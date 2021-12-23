@@ -78,7 +78,21 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
     } else {
         std::cerr << "Couldn't parse '" << line << "'" << " (" << filename << ":" << lineNum << ")" << std::endl;
     }
-
+    /*
+        |         inst          | opcode | op1 | op2 | op3 |       packing       |
+        |-----------------------|--------|-----|-----|-----|---------------------|
+        |mov rd, i8             |  0000  | 4x  | 8x  | --  | 0000 rdrd #### #### |
+        |load rd, @rm + offset  |  0010  | 4x  | 4x  | 4x  | 0010 rmrm rdrd #### |
+        |store @rm + offset, rs |  0011  | 4x  | 4x  | 4x  | 0011 rmrm rsrs #### |
+        |add rd, ra, rb         |  0100  | 4x  | 4x  | 4x  | 0100 rdrd rara rbrb |
+        |add rd, i8             |  0101  | 4x  | 8x  | --  | 0101 rdrd #### #### |
+        |sub rd, ra, rb         |  0110  | 4x  | 4x  | 4x  | 0110 rdrd rara rbrb |
+        |sub rd, i8             |  0111  | 4x  | 8x  | --  | 0111 rdrd #### #### |
+        |jnz  i8                |  1000  | 8x  | --  | --  | 1000 0000 @@@@ @@@@ |
+        |jz  r                  |  1001  | 4x  | --  | --  | 1001 rrrr 0000 0000 |
+        |jmp r, r               |  1010  | 4x  | 4x  | --  | 1010 rrrr rrrr 0000 |
+        |nop                    |  1111  | --  | --  | --  | 1111 0000 0000 0000 |
+    */
     if (opcode == "add") {
         if (arg0.empty() || arg1.empty()) {
             std::cerr << "ERROR: Wrong number of arguments for 'add'" <<
@@ -92,12 +106,16 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                 if (arg1[0] == '#') {
                     // Add immediate to a register
                     unsigned int reg0 = (unsigned)std::stoi(arg0.substr(1));
-                    parsed_inst = Instruction({.label = label, .opcode = ADDI,
+                    parsed_inst = Instruction({
+                        .label = label, 
+                        .opcode = ADDI,
                         .packed_args = ((reg0 &0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
                 } else if (arg1[0] == 'r' && arg2[0] == 'r') {
                     unsigned int reg1 = (unsigned)std::stoi(arg1.substr(1));
                     unsigned int reg2 = (unsigned)std::stoi(arg2.substr(1));
-                    parsed_inst = Instruction({.label = label, .opcode = ADDRR,
+                    parsed_inst = Instruction({
+                        .label = label, 
+                        .opcode = ADDRR,
                         .packed_args = ((reg0 &0xF) << 8) |((reg1 & 0xF) << 4) | ((reg2 & 0xF))});
                 } else {
                     std::cerr << "ERROR: Second and third arguments for 'add' must be the two source registers, not '" <<
@@ -114,14 +132,24 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
         } else {
             if (arg0[0] == '#') {
                 // Relative jump
-                parsed_inst = Instruction({.label = label, .opcode = JNZI, .packed_args = 0});
+                parsed_inst = Instruction({
+                    .label = label, 
+                    .opcode = JNZI, 
+                    .packed_args = 0});
             } else if (arg0[0] == '@') {
                 // Jump to address in register
-                parsed_inst = Instruction({.label = label, .opcode = JZR, .packed_args = 0});
+                parsed_inst = Instruction({
+                    .label = label, 
+                    .opcode = JZR, 
+                    .packed_args = 0});
             } else {
                 // Jump to label
-                parsed_inst = Instruction({.label = label, .opcode = JNZI,
-                    .packed_args = 0, .address = 0, .target_label = arg0});
+                parsed_inst = Instruction({
+                    .label = label, 
+                    .opcode = JNZI,
+                    .packed_args = 0, 
+                    .address = 0, 
+                    .target_label = arg0});
             }
         }
 
@@ -135,7 +163,9 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                 std::cerr << "ERROR: First argument for 'mov' must be a register" <<
                     " (" << filename << ":" << lineNum << ")" << std::endl;
             } else if (arg1[0] == '#') {
-                parsed_inst = Instruction({.label = label, .opcode = MOVIR,
+                parsed_inst = Instruction({
+                    .label = label, 
+                    .opcode = MOVIR,
                     .packed_args = ((reg0 &0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
             } else {
                 std::cerr << "ERROR: Wrong argument type of second argument for 'mov'" <<
@@ -144,26 +174,40 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
         }
 
     } else if (opcode == "nop") {
-        parsed_inst = Instruction({.label = label, .opcode = NOP});
+        parsed_inst = Instruction({
+            .label = label, 
+            .opcode = NOP});
 
     } else if (opcode == "load") {
         if (arg1[0] == '@') {
             unsigned int reg = (unsigned)std::stoi(arg0.substr(1));
-            parsed_inst = Instruction({.label = label, .opcode = LOAD,
+            parsed_inst = Instruction({
+                .label = label, 
+                .opcode = LOAD,
                 .packed_args = ((reg & 0xF) << 8) | ((unsigned)std::stoi(arg1.substr(1)) & 0xFF)});
         } else {
-            parsed_inst = Instruction({.label = label, .opcode = LOAD,
-                .packed_args = (((unsigned)std::stoi(arg0.substr(1)) & 0xF) << 8), .address = 0, .target_label = arg1});
+            parsed_inst = Instruction({
+                .label = label, 
+                .opcode = LOAD,
+                .packed_args = (((unsigned)std::stoi(arg0.substr(1)) & 0xF) << 8), 
+                .address = 0, 
+                .target_label = arg1});
         }
 
     } else if (opcode == "store") {
         if (arg0[0] == '@') {
             unsigned int reg = (unsigned)std::stoi(arg1.substr(1));
-            parsed_inst = Instruction({.label = label, .opcode = STORE,
+            parsed_inst = Instruction({
+                .label = label, 
+                .opcode = STORE,
                 .packed_args = ((reg & 0xF) << 8) | ((unsigned)std::stoi(arg0.substr(1)) & 0xFF)});
         } else {
-            parsed_inst = Instruction({.label = label, .opcode = STORE,
-                .packed_args = (((unsigned)std::stoi(arg1.substr(1)) & 0xF) << 8), .address = 0, .target_label = arg0});
+            parsed_inst = Instruction({
+                .label = label, 
+                .opcode = STORE,
+                .packed_args = (((unsigned)std::stoi(arg1.substr(1)) & 0xF) << 8), 
+                .address = 0, 
+                .target_label = arg0});
         }
 
     }  else if (opcode == "sub") {
@@ -178,11 +222,16 @@ Instruction parseLine(std::string line, int lineNum, std::string filename)
                 unsigned int reg0 = (unsigned)std::stoi(arg0.substr(1));
                 if (arg1[0] == '#') {
                     // Subtract immediate from a register
-                    parsed_inst = Instruction({.label = label, .opcode = SUBI, .packed_args = (unsigned)std::stoi(arg1.substr(1))});
+                    parsed_inst = Instruction({
+                        .label = label, 
+                        .opcode = SUBI, 
+                        .packed_args = (unsigned)std::stoi(arg1.substr(1))});
                 } else if (arg1[0] == 'r' && arg2[0] == 'r') {
                     unsigned int reg1 = (unsigned)std::stoi(arg1.substr(1));
                     unsigned int reg2 = (unsigned)std::stoi(arg2.substr(1));
-                    parsed_inst = Instruction({.label = label, .opcode = SUBRR,
+                    parsed_inst = Instruction({
+                        .label = label, 
+                        .opcode = SUBRR,
                         .packed_args = ((reg0 &0xF) << 8) |((reg1 & 0xF) << 4) | ((reg2 & 0xF))});
                 } else {
                     std::cerr << "ERROR: Second and third arguments for 'sub' must be the two source registers, not '" <<
