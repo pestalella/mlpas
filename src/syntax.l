@@ -23,7 +23,7 @@
 \n+             loc.lines(yyleng); loc.step();
 ":"             return yy::parser::make_COLON(loc);
 ","             return yy::parser::make_COMMA(loc);
-";"             return yy::parser::make_SEMICOLON(loc);
+\s*";".*        /* skip comments */
 "#"             return yy::parser::make_HASH(loc);
 "mov"           return yy::parser::make_OP_MOV(loc);
 "load"          return yy::parser::make_OP_LOAD(loc);
