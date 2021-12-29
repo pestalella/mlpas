@@ -10,3 +10,10 @@
 *.d
 *.log
 *.mem
+*.pdb
+src/location.hh
+src/position.hh
+src/stack.hh
+src/grammar.hpp
+src/grammar.cpp
+src/syntax.cpp
