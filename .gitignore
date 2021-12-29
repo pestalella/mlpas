@@ -4,3 +4,9 @@
 /MLP Assembler/Debug
 /Debug
 *.bin
+*.hex
+*.o
+/obj/
+*.d
+*.log
+*.mem
